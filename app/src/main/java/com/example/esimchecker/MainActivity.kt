@@ -87,15 +87,7 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_RESOLVE) {
-            tvResult.text = "تمت معالجة نافذة التأكيد. جارِ إعادة المحاولة..."
-            val code = etLpaCode.text.toString().trim()
-            if (code.isNotEmpty()) {
-                try {
-                    esimChecker.checkAndInstall(code)
-                } catch (e: Exception) {
-                    tvResult.text = "خطأ عند إعادة المحاولة: ${e.message}"
-                }
-            }
+            tvResult.text = "تمت معالجة نافذة التأكيد. جارِ انتظار النتيجة النهائية..."
         }
     }
 

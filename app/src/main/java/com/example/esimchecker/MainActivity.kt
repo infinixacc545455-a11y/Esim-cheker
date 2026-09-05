@@ -103,15 +103,4 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         esimChecker.unregisterReceiver(receiver)
     }
-}                } catch (e: Exception) {
-                    tvResult.text = "خطأ عند إعادة المحاولة: ${e.message}"
-                }
-            }
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        esimChecker.unregisterReceiver(receiver)
-    }
 }

@@ -1,5 +1,7 @@
 package com.example.esimchecker
 
+import android.content.Intent
+import android.content.IntentSender
 import android.os.Bundle
 import android.telephony.euicc.EuiccManager
 import android.widget.Button
@@ -17,6 +19,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCheck: Button
     private lateinit var tvResult: TextView
 
+    companion object {
+        private const val REQ_RESOLVE = 2001
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -28,16 +34,15 @@ class MainActivity : AppCompatActivity() {
 
         esimChecker = EsimChecker(this)
 
-        // عرض حالة دعم eSIM عند فتح التطبيق
         tvSupportStatus.text = if (esimChecker.isEsimSupported()) {
             "✅ الجهاز يدعم eSIM"
         } else {
             "❌ الجهاز لا يدعم eSIM أو الخدمة غير مفعّلة"
         }
 
-        receiver = EsimChecker.ResultReceiver { resultCode, detailedCode ->
+        receiver = EsimChecker.ResultReceiver { resultCode, detailedCode, intent ->
             runOnUiThread {
-                tvResult.text = interpretResult(resultCode, detailedCode)
+                handleResult(resultCode, detailedCode, intent)
             }
         }
         esimChecker.registerReceiver(receiver)
@@ -57,17 +62,52 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun interpretResult(resultCode: Int, detailedCode: Int?): String {
-        return when (resultCode) {
-            EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK ->
-                "✅ نجح! الملف الشخصي صالح وتم تثبيته."
-            EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR ->
-                "❌ فشل. الكود على الأرجح غير موجود/منتهي/مستخدم من قبل.\n" +
+    private fun handleResult(resultCode: Int, detailedCode: Int?, intent: Intent) {
+        when (resultCode) {
+            EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK -> {
+                tvResult.text = "✅ نجح! الملف الشخصي صالح وتم تثبيته."
+            }
+            EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR -> {
+                tvResult.text = "❌ فشل. الكود على الأرجح غير موجود/منتهي/مستخدم من قبل.\n" +
                         "رمز تفصيلي: ${detailedCode ?: "غير متوفر"}"
-            EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_RESOLVABLE_ERROR ->
-                "⚠️ يحتاج تدخل إضافي من المستخدم (تأكيد في نافذة النظام)."
-            else ->
-                "نتيجة غير معروفة: $resultCode"
+            }
+            EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_RESOLVABLE_ERROR -> {
+                val resolutionIntent: android.app.PendingIntent? = intent.getParcelableExtra(
+                    EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_RESOLUTION_INTENT
+                )
+                if (resolutionIntent != null) {
+                    tvResult.text = "⚠️ جارِ فتح نافذة تأكيد النظام..."
+                    try {
+                        startIntentSenderForResult(
+                            resolutionIntent.intentSender,
+                            REQ_RESOLVE,
+                            null, 0, 0, 0
+                        )
+                    } catch (e: IntentSender.SendIntentException) {
+                        tvResult.text = "خطأ في فتح نافذة التأكيد: ${e.message}"
+                    }
+                } else {
+                    tvResult.text = "⚠️ النظام طلب تأكيد إضافي لكن لم يوفر نافذة قابلة للفتح."
+                }
+            }
+            else -> {
+                tvResult.text = "نتيجة غير معروفة: $resultCode"
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_RESOLVE) {
+            tvResult.text = "تمت معالجة نافذة التأكيد. جارِ إعادة المحاولة..."
+            val code = etLpaCode.text.toString().trim()
+            if (code.isNotEmpty()) {
+                try {
+                    esimChecker.checkAndInstall(code)
+                } catch (e: Exception) {
+                    tvResult.text = "خطأ عند إعادة المحاولة: ${e.message}"
+                }
+            }
         }
     }
 

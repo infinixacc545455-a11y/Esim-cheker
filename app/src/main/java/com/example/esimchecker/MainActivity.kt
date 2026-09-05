@@ -67,8 +67,14 @@ class MainActivity : AppCompatActivity() {
                 tvResult.text = "✅ نجح! الملف الشخصي صالح وتم تثبيته."
             }
             EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR -> {
-                tvResult.text = "❌ فشل. الكود على الأرجح غير موجود/منتهي/مستخدم من قبل.\n" +
-                        "رمز تفصيلي: ${detailedCode ?: "غير متوفر"}"
+                val detailText = detailedCode?.let { code ->
+                    "$code${interpretDetailedCode(code)}"
+                } ?: "غير متوفر"
+                tvResult.text = "❌ فشل التثبيت.\n" +
+                        "رمز تفصيلي: $detailText\n\n" +
+                        "ملاحظة: على بعض الأجهزة (مثل OnePlus/Oppo/Vivo)، قد يظهر " +
+                        "هذا الخطأ حتى مع كود صحيح، بسبب قيود الشركة المصنّعة على " +
+                        "تطبيقات الطرف الثالث، وليس بالضرورة عيباً في الكود نفسه."
             }
             EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_RESOLVABLE_ERROR -> {
                 tvResult.text = "⚠️ جارِ فتح نافذة تأكيد النظام..."
@@ -81,6 +87,14 @@ class MainActivity : AppCompatActivity() {
             else -> {
                 tvResult.text = "نتيجة غير معروفة: $resultCode"
             }
+        }
+    }
+
+    private fun interpretDetailedCode(code: Int): String {
+        return when {
+            code == 10000 || code == 10001 -> " (احتمال: مشكلة في عنوان SM-DP+ أو الاتصال بالخادم)"
+            code in 10002..10010 -> " (احتمال: الكود غير صالح أو تنسيقه خاطئ)"
+            else -> " (راجع توثيق EuiccManager أو ابحث عن الرمز تحديداً لمعرفة السبب الدقيق)"
         }
     }
 

@@ -1,5 +1,6 @@
 package com.example.esimchecker
 
+import android.app.Activity
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -9,23 +10,11 @@ import android.os.Build
 import android.telephony.euicc.DownloadableSubscription
 import android.telephony.euicc.EuiccManager
 
-/**
- * مثال أساسي لاستخدام EuiccManager لمحاولة تنزيل/تثبيت ملف eSIM
- * انطلاقاً من كود LPA بصيغة:
- *   LPA:1$smdp.example.com$ACTIVATION_CODE$
- *
- * ملاحظات مهمة:
- * 1) يتطلب جهاز أندرويد حقيقي يدعم eSIM (EuiccManager.isEnabled() == true).
- * 2) بدون Carrier Privileges، النظام سيعرض واجهة تأكيد رسمية للمستخدم.
- * 3) بعض الأكواد "استخدام واحد" (one-time) — محاولة التثبيت قد تحرق الكود
- *    حتى إن أُلغيت العملية لاحقاً، حسب سياسة SM-DP+.
- */
 class EsimChecker(private val context: Context) {
 
     companion object {
         const val ACTION_ESIM_RESULT = "com.example.esimchecker.ESIM_RESULT"
         const val REQUEST_CODE = 1001
-        const val EXTRA_RESULT_CODE = "android.telephony.euicc.extra.EMBEDDED_SUBSCRIPTION_RESULT"
     }
 
     private val euiccManager: EuiccManager by lazy {
@@ -34,29 +23,40 @@ class EsimChecker(private val context: Context) {
 
     fun isEsimSupported(): Boolean = euiccManager.isEnabled
 
+    private fun buildCallbackPendingIntent(): PendingIntent {
+        val intent = Intent(ACTION_ESIM_RESULT).apply {
+            setPackage(context.packageName)
+        }
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_MUTABLE
+        } else {
+            0
+        }
+        return PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
+    }
+
     fun checkAndInstall(lpaString: String) {
         if (!isEsimSupported()) {
             throw IllegalStateException("الجهاز لا يدعم eSIM أو الخدمة غير مفعّلة")
         }
 
         val subscription = DownloadableSubscription.forActivationCode(lpaString)
-
-        val intent = Intent(ACTION_ESIM_RESULT).apply {
-            setPackage(context.packageName)
-        }
-
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            PendingIntent.FLAG_MUTABLE
-        } else {
-            0
-        }
-
-        val pendingIntent = PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
+        val pendingIntent = buildCallbackPendingIntent()
 
         euiccManager.downloadSubscription(
             subscription,
-            /* switchAfterDownload = */ false,
+            false,
             pendingIntent
+        )
+    }
+
+    fun startResolution(activity: Activity, requestCode: Int, resolutionIntent: Intent) {
+        val callbackPendingIntent = buildCallbackPendingIntent()
+        euiccManager.startResolutionActivity(
+            activity,
+            requestCode,
+            resolutionIntent,
+            callbackPendingIntent
         )
     }
 
@@ -89,25 +89,6 @@ class EsimChecker(private val context: Context) {
         try {
             context.unregisterReceiver(receiver)
         } catch (e: IllegalArgumentException) {
-            // الـ receiver غير مسجل، تجاهل
         }
     }
 }
-
-/**
- * دليل تفسير أهم رموز النتائج (EuiccManager):
- *
- * EMBEDDED_SUBSCRIPTION_RESULT_OK (0)
- *   -> نجحت العملية، الملف الشخصي صالح وتم تنزيله فعلياً.
- *
- * EMBEDDED_SUBSCRIPTION_RESULT_ERROR (1)
- *   -> خطأ عام. راجع detailedCode لمعرفة السبب:
- *      - عنوان SM-DP+ غير صالح
- *      - كود التفعيل غير صحيح الصيغة
- *      - eUICC ممتلئة
- *      - فشل الاتصال بالخادم، أو الكود منتهي/مستخدم مسبقاً
- *        (أقرب مؤشر على "eSIM غير موجودة")
- *
- * EMBEDDED_SUBSCRIPTION_RESULT_RESOLVABLE_ERROR (2)
- *   -> يحتاج تدخل المستخدم، وليس بالضرورة فشلاً نهائياً.
- */

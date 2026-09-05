@@ -1,7 +1,6 @@
 package com.example.esimchecker
 
 import android.content.Intent
-import android.content.IntentSender
 import android.os.Bundle
 import android.telephony.euicc.EuiccManager
 import android.widget.Button
@@ -72,22 +71,11 @@ class MainActivity : AppCompatActivity() {
                         "رمز تفصيلي: ${detailedCode ?: "غير متوفر"}"
             }
             EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_RESOLVABLE_ERROR -> {
-                val resolutionIntent: android.app.PendingIntent? = intent.getParcelableExtra(
-                    EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_RESOLUTION_INTENT
-                )
-                if (resolutionIntent != null) {
-                    tvResult.text = "⚠️ جارِ فتح نافذة تأكيد النظام..."
-                    try {
-                        startIntentSenderForResult(
-                            resolutionIntent.intentSender,
-                            REQ_RESOLVE,
-                            null, 0, 0, 0
-                        )
-                    } catch (e: IntentSender.SendIntentException) {
-                        tvResult.text = "خطأ في فتح نافذة التأكيد: ${e.message}"
-                    }
-                } else {
-                    tvResult.text = "⚠️ النظام طلب تأكيد إضافي لكن لم يوفر نافذة قابلة للفتح."
+                tvResult.text = "⚠️ جارِ فتح نافذة تأكيد النظام..."
+                try {
+                    esimChecker.startResolution(this, REQ_RESOLVE, intent)
+                } catch (e: Exception) {
+                    tvResult.text = "خطأ في فتح نافذة التأكيد: ${e.message}"
                 }
             }
             else -> {
@@ -105,6 +93,17 @@ class MainActivity : AppCompatActivity() {
                 try {
                     esimChecker.checkAndInstall(code)
                 } catch (e: Exception) {
+                    tvResult.text = "خطأ عند إعادة المحاولة: ${e.message}"
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        esimChecker.unregisterReceiver(receiver)
+    }
+}                } catch (e: Exception) {
                     tvResult.text = "خطأ عند إعادة المحاولة: ${e.message}"
                 }
             }

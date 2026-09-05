@@ -61,7 +61,7 @@ class EsimChecker(private val context: Context) {
     }
 
     class ResultReceiver(
-        private val onResult: (resultCode: Int, detailedCode: Int?) -> Unit
+        private val onResult: (resultCode: Int, detailedCode: Int?, intent: Intent) -> Unit
     ) : BroadcastReceiver() {
 
         override fun onReceive(context: Context, intent: Intent) {
@@ -72,7 +72,7 @@ class EsimChecker(private val context: Context) {
                 EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE, -1
             ).takeIf { it != -1 }
 
-            onResult(resultCode, detailedCode)
+            onResult(resultCode, detailedCode, intent)
         }
     }
 

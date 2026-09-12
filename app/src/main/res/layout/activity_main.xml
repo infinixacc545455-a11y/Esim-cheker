@@ -25,7 +25,14 @@
         android:id="@+id/btnCheck"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="فحص / تثبيت الكود" />
+        android:text="فحص / تثبيت الكود (EuiccManager)" />
+
+    <Button
+        android:id="@+id/btnOpenGoogleLink"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="فحص عبر رابط Google الرسمي (موصى به)" />
 
     <TextView
         android:id="@+id/tvResult"

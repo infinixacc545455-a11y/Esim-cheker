@@ -1,12 +1,14 @@
 package com.example.esimchecker
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.telephony.euicc.EuiccManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import java.net.URLEncoder
 
 class MainActivity : AppCompatActivity() {
 
@@ -16,6 +18,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvSupportStatus: TextView
     private lateinit var etLpaCode: EditText
     private lateinit var btnCheck: Button
+    private lateinit var btnOpenGoogleLink: Button
     private lateinit var tvResult: TextView
 
     companion object {
@@ -29,6 +32,7 @@ class MainActivity : AppCompatActivity() {
         tvSupportStatus = findViewById(R.id.tvSupportStatus)
         etLpaCode = findViewById(R.id.etLpaCode)
         btnCheck = findViewById(R.id.btnCheck)
+        btnOpenGoogleLink = findViewById(R.id.btnOpenGoogleLink)
         tvResult = findViewById(R.id.tvResult)
 
         esimChecker = EsimChecker(this)
@@ -57,6 +61,26 @@ class MainActivity : AppCompatActivity() {
                 esimChecker.checkAndInstall(code)
             } catch (e: Exception) {
                 tvResult.text = "خطأ: ${e.message}"
+            }
+        }
+
+        btnOpenGoogleLink.setOnClickListener {
+            val code = etLpaCode.text.toString().trim()
+            if (code.isEmpty()) {
+                tvResult.text = "من فضلك أدخل كود LPA أولاً"
+                return@setOnClickListener
+            }
+            try {
+                val encodedCode = URLEncoder.encode(code, "UTF-8")
+                val url = "https://esimsetup.android.com/esim_qrcode_provisioning?carddata=$encodedCode"
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                startActivity(intent)
+                tvResult.text = "تم فتح رابط Google الرسمي.\n\n" +
+                        "⚠️ مهم: لو ظهرت شاشة فيها اسم شبكة (مثل eSIM Go) " +
+                        "فهذا يعني أن الكود صالح — لا تضغط Setup/Yes إذا كنت " +
+                        "تريد فحص الكود فقط بدون استهلاكه فعلياً. اضغط Cancel للخروج بأمان."
+            } catch (e: Exception) {
+                tvResult.text = "خطأ في فتح الرابط: ${e.message}"
             }
         }
     }
@@ -105,6 +129,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        esimChecker.unregisterReceiver(receiver)
+    }
+}
     override fun onDestroy() {
         super.onDestroy()
         esimChecker.unregisterReceiver(receiver)
